@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URLDecoder; // Necesario para decodificar nombres con espacios
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @Service
@@ -27,55 +29,69 @@ public class MaterialService {
     @Value("${azure.storage.container-name}")
     private String containerName;
 
-    // OPCIÓN A: Subir Fichero (PDF/WORD)
+    // ... (Tus métodos uploadFile y createLink SE QUEDAN IGUAL, no los borres) ...
+    // Copia los métodos uploadFile y createLink del paso anterior aquí.
+    // Solo añado el NUEVO método de borrar abajo:
+
     public Material uploadFile(MultipartFile file, String title, String typeString, Long contentId) throws IOException {
-        // 1. Validación de seguridad (quita el warning)
-        if (contentId == null) {
-            throw new IllegalArgumentException("El ID del tema es obligatorio");
-        }
-
-        // 2. Buscar el Tema
-        Content content = contentRepository.findById(contentId)
-                .orElseThrow(() -> new RuntimeException("Tema no encontrado con id: " + contentId));
-
-        // 3. Generar nombre único
+        if (contentId == null) throw new IllegalArgumentException("El ID del tema es obligatorio");
+        Content content = contentRepository.findById(contentId).orElseThrow(() -> new RuntimeException("Tema no encontrado"));
+        
         String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-
-        // 4. Subir a Azure
         BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
         BlobClient blobClient = containerClient.getBlobClient(filename);
-        
         blobClient.upload(file.getInputStream(), file.getSize(), true);
-        String fileUrl = blobClient.getBlobUrl();
-
-        // 5. Guardar en Base de Datos
+        
         Material material = new Material();
         material.setTitle(title);
         material.setType(MaterialType.valueOf(typeString)); 
-        material.setUrl(fileUrl);
+        material.setUrl(blobClient.getBlobUrl());
         material.setContent(content);
-
         return materialRepository.save(material);
     }
 
-    // OPCIÓN B: Crear Link (VIDEO/LINK)
     public Material createLink(String url, String title, String typeString, Long contentId) {
-        // 1. Validación de seguridad (quita el warning)
-        if (contentId == null) {
-            throw new IllegalArgumentException("El ID del tema es obligatorio");
-        }
-
-        // 2. Buscar el Tema
-        Content content = contentRepository.findById(contentId)
-                .orElseThrow(() -> new RuntimeException("Tema no encontrado con id: " + contentId));
-
-        // 3. Guardar
+        if (contentId == null) throw new IllegalArgumentException("El ID del tema es obligatorio");
+        Content content = contentRepository.findById(contentId).orElseThrow(() -> new RuntimeException("Tema no encontrado"));
+        
         Material material = new Material();
         material.setTitle(title);
         material.setType(MaterialType.valueOf(typeString));
         material.setUrl(url);
         material.setContent(content);
-
         return materialRepository.save(material);
+    }
+
+public void deleteMaterial(Long id) {
+        // 1. Comprobación de seguridad: Si el ID es nulo, paramos aquí.
+        if (id == null) {
+            throw new IllegalArgumentException("El ID del material no puede ser nulo");
+        }
+
+        Material material = materialRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Material no encontrado"));
+
+        // Si es un archivo de Azure, borrarlo de la nube primero
+        if (material.getUrl() != null && material.getUrl().contains(containerName) && material.getUrl().contains("blob.core.windows.net")) {
+            try {
+                // Extraer el nombre del archivo de la URL
+                String fileName = material.getUrl().substring(material.getUrl().lastIndexOf("/") + 1);
+                // Decodificar por si tiene espacios (%20)
+                fileName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+                
+                BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
+                BlobClient blobClient = containerClient.getBlobClient(fileName);
+                
+                if (blobClient.exists()) {
+                    blobClient.delete();
+                }
+            } catch (Exception e) {
+                System.err.println("Error borrando archivo de Azure: " + e.getMessage());
+                // Continuamos para borrarlo de la BD aunque falle Azure
+            }
+        }
+
+        // Borrar de la base de datos
+        materialRepository.delete(material);
     }
 }

@@ -48,7 +48,14 @@ public class MaterialController {
         );
         return ResponseEntity.ok(newMaterial);
     }
-}
 
+
+@DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROFESOR')") // Solo profes borran
+    public ResponseEntity<Void> deleteMaterial(@PathVariable Long id) {
+        materialService.deleteMaterial(id);
+        return ResponseEntity.noContent().build();
+    }
+}
 // DTO Auxiliar (puede ir en su propio archivo o aquí mismo al final)
 record LinkRequest(String title, String type, String url, Long topicId) {}
