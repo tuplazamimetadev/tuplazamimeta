@@ -11,7 +11,7 @@ import com.tuplazamimeta.policiaapi.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // <--- IMPORTANTE: DE SPRING
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -59,46 +59,40 @@ public class MaterialService {
         return materialRepository.save(material);
     }
 
-    // --- AQUÍ ESTÁ LA MAGIA PARA ARREGLAR EL BORRADO ---
-    @Transactional // Asegura que la operación sea atómica
+    @Transactional
     public void deleteMaterial(Long id) {
-        System.out.println(">>> INICIANDO BORRADO DE MATERIAL ID: " + id); // LOG
-
         if (id == null) throw new IllegalArgumentException("El ID no puede ser nulo");
 
         Material material = materialRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Material no encontrado"));
 
-        // 1. Intentar borrar de Azure (si es un archivo)
-        if (material.getUrl() != null && material.getUrl().contains(containerName) && material.getUrl().contains("blob.core.windows.net")) {
+        // 1. Borrar de Azure
+        if (material.getUrl() != null && material.getUrl().contains(containerName)) {
             try {
+                // CORRECCIÓN 1: Usamos las clases importadas en vez de escribir la ruta entera
                 String fileName = material.getUrl().substring(material.getUrl().lastIndexOf("/") + 1);
                 fileName = URLDecoder.decode(fileName, StandardCharsets.UTF_8);
                 
-                System.out.println(">>> INTENTANDO BORRAR BLOB AZURE: " + fileName); // LOG
-
                 BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient(containerName);
                 BlobClient blobClient = containerClient.getBlobClient(fileName);
                 
                 if (blobClient.exists()) {
                     blobClient.delete();
-                    System.out.println(">>> BLOB BORRADO CORRECTAMENTE"); // LOG
-                } else {
-                    System.out.println(">>> EL BLOB NO EXISTÍA, CONTINUAMOS..."); // LOG
                 }
             } catch (Exception e) {
-                // Si falla Azure, NO paramos. Queremos borrar el registro de la BD sí o sí.
-                System.err.println(">>> ERROR EN AZURE (IGNORADO PARA LIMPIAR BD): " + e.getMessage());
+                System.err.println("Error Azure (no crítico): " + e.getMessage());
             }
         }
 
-        // 2. Borrar de la base de datos
-        System.out.println(">>> BORRANDO REGISTRO DE BASE DE DATOS..."); // LOG
+        // 2. CORRECCIÓN 2 (Null Safety): Asignamos a variable para asegurar que no es nulo
+        Content parentContent = material.getContent();
+        if (parentContent != null) {
+            parentContent.getMaterials().remove(material);
+            contentRepository.save(parentContent);
+        }
+
+        // 3. Borrar de la BD y forzar
         materialRepository.delete(material);
-        
-        // 3. FORZAR el borrado inmediato (Esto evita que se quede 'colgado' y falle después)
-        materialRepository.flush(); 
-        
-        System.out.println(">>> ¡BORRADO COMPLETO Y CONFIRMADO!"); // LOG
+        materialRepository.flush();
     }
 }
