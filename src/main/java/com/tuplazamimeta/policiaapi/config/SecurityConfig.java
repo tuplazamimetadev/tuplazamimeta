@@ -40,16 +40,24 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+@Bean
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // IMPORTANTE: Usamos setAllowedOriginPatterns("*") para permitir conexiones desde Azure y Localhost
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
         
+        // Aquí pones las URLs de tu frontend (local y nube)
+        configuration.setAllowedOrigins(List.of(
+            "http://localhost:5173", 
+            "https://tuplazamimeta.z6.web.core.windows.net",
+            "https://tuplazamimeta.azurewebsites.net"
+        ));
+        
+        // --- ESTA ES LA LÍNEA MÁGICA ---
+        // Tienes que permitir explícitamente DELETE y PUT
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
