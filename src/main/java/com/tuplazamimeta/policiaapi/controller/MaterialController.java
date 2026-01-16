@@ -18,18 +18,18 @@ public class MaterialController {
 
     private final MaterialService materialService;
 
-    // 1. SUBIR ARCHIVOS -> CAMBIADO A hasAnyAuthority
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyAuthority('ADMIN', 'PROFESOR')") // <--- ¡AQUÍ ESTABA EL ERROR!
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'PROFESOR')")
     public ResponseEntity<Material> uploadMaterial(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") String title,
             @RequestParam("type") String type,
-            @RequestParam("topicId") Long topicId
+            @RequestParam("topicId") Long topicId,
+            @RequestParam(value = "description", required = false) String description // <--- NUEVO
     ) {
         try {
-            Material newMaterial = materialService.uploadFile(file, title, type, topicId);
-            return ResponseEntity.ok(newMaterial);
+            // Pasamos la descripción al servicio
+            return ResponseEntity.ok(materialService.uploadFile(file, title, type, topicId, description));
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();
         }
@@ -40,11 +40,10 @@ public class MaterialController {
     @PreAuthorize("hasAnyAuthority('ADMIN', 'PROFESOR')") // <--- CAMBIO AQUÍ
     public ResponseEntity<Material> createLink(@RequestBody LinkRequest request) {
         Material newMaterial = materialService.createLink(
-                request.url(), 
-                request.title(), 
-                request.type(), 
-                request.topicId()
-        );
+                request.url(),
+                request.title(),
+                request.type(),
+                request.topicId());
         return ResponseEntity.ok(newMaterial);
     }
 
@@ -58,4 +57,5 @@ public class MaterialController {
 }
 
 // DTO Auxiliar
-record LinkRequest(String title, String type, String url, Long topicId) {}
+record LinkRequest(String title, String type, String url, Long topicId) {
+}

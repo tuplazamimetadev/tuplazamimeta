@@ -22,4 +22,7 @@ public class Material {
     @ManyToOne
     @JoinColumn(name = "content_id")
     private Content content;
+
+    @Column(length = 500) 
+    private String description;
 }

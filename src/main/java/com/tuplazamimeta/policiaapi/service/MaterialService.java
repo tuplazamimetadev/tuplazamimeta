@@ -30,7 +30,7 @@ public class MaterialService {
     @Value("${azure.storage.container-name}")
     private String containerName;
 
-    public Material uploadFile(MultipartFile file, String title, String typeString, Long contentId) throws IOException {
+    public Material uploadFile(MultipartFile file, String title, String typeString, Long contentId, String description) throws IOException {
         if (contentId == null) throw new IllegalArgumentException("El ID del tema es obligatorio");
         Content content = contentRepository.findById(contentId).orElseThrow(() -> new RuntimeException("Tema no encontrado"));
         
@@ -41,6 +41,7 @@ public class MaterialService {
         
         Material material = new Material();
         material.setTitle(title);
+        material.setDescription(description);
         material.setType(MaterialType.valueOf(typeString)); 
         material.setUrl(blobClient.getBlobUrl());
         material.setContent(content);
