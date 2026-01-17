@@ -1,0 +1,7 @@
+CREATE TABLE app_news (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    link VARCHAR(500),
+    published_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
