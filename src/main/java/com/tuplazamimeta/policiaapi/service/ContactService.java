@@ -33,4 +33,10 @@ public class ContactService {
         // Aquí podrías añadir lógica para enviar un email real al administrador
         // emailService.sendNotification(messageEntity);
     }
+    public void deleteMessage(Long id) {
+        if (!contactRepository.existsById(id)) {
+            throw new RuntimeException("El mensaje no existe");
+        }
+        contactRepository.deleteById(id);
+    }
 }

@@ -35,4 +35,10 @@ public class ContactController {
         // pero asumiremos que el frontend oculta la página y el SecurityConfig protege /api/**
         return ResponseEntity.ok(contactRepository.findAllByOrderBySentAtDesc());
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteMessage(@PathVariable Long id) {
+        contactService.deleteMessage(id);
+        return ResponseEntity.noContent().build();
+    }
 }

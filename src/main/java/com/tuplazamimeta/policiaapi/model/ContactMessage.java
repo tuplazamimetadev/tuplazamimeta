@@ -18,15 +18,17 @@ public class ContactMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long userId; // ID del alumno
+    private Long userId;
     private String userName;
     private String userEmail;
+    
+    private String userRole; // <--- NUEVO CAMPO
 
     private String type; // "GENERAL" o "TUTORIA"
-    private String subject; // Asunto o Tema
+    private String subject;
     
     @Column(columnDefinition = "TEXT")
-    private String message; // Descripción
+    private String message;
 
     private LocalDateTime sentAt;
     

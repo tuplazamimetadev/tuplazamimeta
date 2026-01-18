@@ -1,0 +1,1 @@
+ALTER TABLE contact_messages ADD COLUMN user_role VARCHAR(50);

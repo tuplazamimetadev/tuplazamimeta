@@ -16,7 +16,7 @@ public class ContactMapper {
                 .userId(user.getId())
                 .userName(user.getName())
                 .userEmail(user.getEmail())
-                // La fecha se pone automática con @PrePersist en la entidad
+                .userRole(user.getRole()) // <--- AÑADIR ESTO
                 .build();
     }
 }
