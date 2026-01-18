@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails; // <--- IMPORTANTE
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -20,21 +21,23 @@ public class User implements UserDetails { // <--- IMPLEMENTA ESTO
     private Long id;
 
     private String name;
-    
+
     @Column(unique = true)
     private String email;
-    
+
     private String password;
     private String role; // "ADMIN", "STUDENT"
-    
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+    
+    @Column(name = "expiration_date")
+    private LocalDate expirationDate;
 
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
     }
-
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -48,14 +51,22 @@ public class User implements UserDetails { // <--- IMPLEMENTA ESTO
     }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonLocked() {
+        return true;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isEnabled() {
+        return true;
+    }
 }

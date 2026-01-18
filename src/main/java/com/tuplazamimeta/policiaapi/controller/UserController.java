@@ -3,12 +3,16 @@ package com.tuplazamimeta.policiaapi.controller;
 import com.tuplazamimeta.policiaapi.dto.response.UserProfileResponse;
 import com.tuplazamimeta.policiaapi.model.User;
 import com.tuplazamimeta.policiaapi.repository.UserRepository;
+
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
 
@@ -18,6 +22,8 @@ import java.time.format.DateTimeFormatter;
 public class UserController {
 
     private final UserRepository userRepository;
+    @Autowired
+    PasswordEncoder passwordEncoder;
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> getCurrentUser(Authentication authentication) {
@@ -28,17 +34,40 @@ public class UserController {
 
         String role = user.getRole() != null ? user.getRole() : "STUDENT";
 
-        // Fecha de expiración
+        // CORRECCIÓN: Usar la fecha real de expiración
         String expiration = "Indefinido";
-        if (user.getCreatedAt() != null) {
-            expiration = user.getCreatedAt().plusYears(1).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        if (user.getExpirationDate() != null) {
+            expiration = user.getExpirationDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } else if (user.getCreatedAt() != null) {
+            // Fallback por si acaso es null (aunque el script V12 lo arregla)
+            expiration = user.getCreatedAt().plusDays(30).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         }
 
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getName(),
                 user.getEmail(),
-                role, // <--- Enviamos "ADMIN" puro
-                expiration
-        ));
+                role,
+                expiration));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<User> updateProfile(@RequestBody UpdateProfileDto request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email).orElseThrow();
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            user.setName(request.getName());
+        }
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+
+        return ResponseEntity.ok(userRepository.save(user));
+    }
+
+    @Data
+    static class UpdateProfileDto {
+        private String name;
+        private String password;
     }
 }
