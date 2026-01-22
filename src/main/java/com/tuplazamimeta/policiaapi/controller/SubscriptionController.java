@@ -17,31 +17,27 @@ public class SubscriptionController {
 
     private final UserRepository userRepository;
 
-    @PostMapping("/upgrade")
+@PostMapping("/upgrade")
     public ResponseEntity<?> upgradePlan(@RequestBody SubscriptionRequest request) {
+        // AQUÍ IRÁ LA LÓGICA DE STRIPE / REDSYS EN EL FUTURO
+        
+        /* CÓDIGO COMENTADO PARA NO REGALAR EL ROL
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email).orElseThrow();
 
-        // Lógica de planes
         switch (request.getPlan()) {
-            case "Solo Test":
-                user.setRole("TEST");
-                break;
-            case "Solo Supuestos":
-                user.setRole("SUPUESTOS");
-                break;
-            case "Opositor Completo":
-                user.setRole("COMPLETO"); // O 'PREMIUM' según uses en front
-                break;
-            default:
-                return ResponseEntity.badRequest().body("Plan desconocido");
+            case "Solo Test": user.setRole("TEST"); break;
+            case "Solo Supuestos": user.setRole("SUPUESTOS"); break;
+            case "Opositor Completo": user.setRole("COMPLETO"); break;
+            default: return ResponseEntity.badRequest().body("Plan desconocido");
         }
         
-        // Sumar 30 días de suscripción
         user.setExpirationDate(LocalDate.now().plusDays(30));
         userRepository.save(user);
+        */
 
-        return ResponseEntity.ok("Plan actualizado correctamente");
+        // Devolvemos OK pero con un mensaje de aviso (o un error 400 si prefieres que falle)
+        return ResponseEntity.ok("La pasarela de pago estará disponible próximamente.");
     }
 
     @Data

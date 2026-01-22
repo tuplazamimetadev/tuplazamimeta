@@ -32,14 +32,33 @@ public class UserController {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
+        // --- 1. LÓGICA DE CADUCIDAD AUTOMÁTICA ---
+        // Si tiene fecha de vencimiento, no es Admin, y la fecha ya pasó (es anterior a
+        // hoy)
+        if (user.getExpirationDate() != null
+                && user.getExpirationDate().isBefore(java.time.LocalDate.now())
+                && !"ADMIN".equals(user.getRole())
+                && !"PROFESOR".equals(user.getRole())
+                && !"STUDENT".equals(user.getRole())) {
+
+            // Lo bajamos al plan de PRUEBA
+            user.setRole("PRUEBA");
+            user.setExpirationDate(null);
+
+            userRepository.save(user); // Guardamos el cambio en BBDD
+        }
+
         String role = user.getRole() != null ? user.getRole() : "STUDENT";
 
-        // CORRECCIÓN: Usar la fecha real de expiración
+        // --- 2. MOSTRAR LA FECHA CORRECTAMENTE ---
         String expiration = "Indefinido";
-        if (user.getExpirationDate() != null) {
+
+        if ("ADMIN".equals(role) || "PROFESOR".equals(role)) {
+            expiration = "Ilimitado";
+        } else if (user.getExpirationDate() != null) {
             expiration = user.getExpirationDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         } else if (user.getCreatedAt() != null) {
-            // Fallback por si acaso es null (aunque el script V12 lo arregla)
+            // Fallback visual solo si no hay fecha explícita
             expiration = user.getCreatedAt().plusDays(30).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         }
 
