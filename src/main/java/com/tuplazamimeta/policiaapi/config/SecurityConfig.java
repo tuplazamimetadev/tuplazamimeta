@@ -3,9 +3,9 @@ package com.tuplazamimeta.policiaapi.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod; // <--- NO OLVIDES IMPORTAR ESTO
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; // <--- IMPORTANTE
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -21,7 +21,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@EnableMethodSecurity // <--- ¡ESTA LÍNEA ES VITAL! Sin ella, @PreAuthorize no funciona
+@EnableMethodSecurity // Permite usar @PreAuthorize en los controladores
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
@@ -31,9 +31,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Conectamos la config de abajo
             .authorizeHttpRequests(auth -> auth
-                // 1. Truco para evitar 403 en Login desde React (OPTIONS)
+                // 1. Permitir PRE-FLIGHT (OPTIONS) para evitar errores de CORS en login
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 
                 // 2. Rutas Públicas
@@ -54,16 +54,29 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // TU CONFIGURACIÓN ORIGINAL QUE FUNCIONABA:
-        configuration.setAllowedOriginPatterns(List.of("*")); // Permite todo origen
-        
-        // AÑADIDO "DELETE" A LA LISTA:
+
+        // --- CORRECCIÓN CRÍTICA PARA TU DOMINIO ---
+        // Usar "*" junto con setAllowCredentials(true) suele fallar en Chrome/Edge.
+        // Aquí autorizamos explícitamente tus dominios para que Azure les deje pasar:
+        configuration.setAllowedOrigins(List.of(
+            "http://localhost:5173",                             // Tu PC (Desarrollo)
+            "https://nice-wave-0fb3bec03.6.azurestaticapps.net", // URL técnica de Azure
+            "https://tuplazamimeta.com",                         // Tu dominio nuevo
+            "https://www.tuplazamimeta.com"                      // Tu dominio nuevo con WWW
+        ));
+
+        // Métodos permitidos (DELETE incluido)
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
+        // Headers permitidos
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
         
+        // Headers que el Frontend puede leer
+        configuration.setExposedHeaders(List.of("Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"));
+        
+        // Permitir credenciales/cookies
+        configuration.setAllowCredentials(true);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
