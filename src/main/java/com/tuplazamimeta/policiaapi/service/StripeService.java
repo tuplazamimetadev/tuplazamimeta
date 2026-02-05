@@ -1,6 +1,7 @@
 package com.tuplazamimeta.policiaapi.service;
 
 import com.stripe.Stripe;
+import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 import com.tuplazamimeta.policiaapi.dto.request.PaymentRequest;
@@ -24,29 +25,26 @@ public class StripeService {
         Stripe.apiKey = secretKey;
     }
 
-    public Session createCheckoutSession(PaymentRequest paymentRequest, User user) throws Exception {
-        // Configuramos los parámetros de la sesión de pago
+public Session createCheckoutSession(PaymentRequest request, User user) throws StripeException {
+        
         SessionCreateParams params = SessionCreateParams.builder()
-                .setMode(SessionCreateParams.Mode.PAYMENT) // O SUBSCRIPTION si configuras productos recurrentes en Stripe
+                // 1. MODO SUSCRIPCIÓN (Esto activa el cobro mensual automático)
+                .setMode(SessionCreateParams.Mode.SUBSCRIPTION) 
+                
                 .setSuccessUrl(clientUrl + "/profile?payment=success")
-                .setCancelUrl(clientUrl + "/planes?payment=cancelled")
-                .setCustomerEmail(user.getEmail()) // Pre-rellena el email del usuario
+                .setCancelUrl(clientUrl + "/suscripcion?payment=cancelled")
+                .setCustomerEmail(user.getEmail()) 
+                
+                // 2. Metadatos para el Webhook
+                .putMetadata("userId", user.getId().toString())
+                .putMetadata("planName", request.getPlanName())
+                
+                // 3. El producto específico a cobrar
                 .addLineItem(
                         SessionCreateParams.LineItem.builder()
                                 .setQuantity(1L)
-                                .setPriceData(
-                                        SessionCreateParams.LineItem.PriceData.builder()
-                                                .setCurrency("eur")
-                                                .setUnitAmount(paymentRequest.getAmount()) // Precio en céntimos
-                                                .setProductData(
-                                                        SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                                .setName("Suscripción " + paymentRequest.getPlanName())
-                                                                .build())
-                                                .build())
+                                .setPrice(request.getPriceId()) // <-- Usamos el ID de precio (price_...)
                                 .build())
-                // Metadatos para saber quién pagó cuando Stripe nos avise
-                .putMetadata("userId", user.getId().toString())
-                .putMetadata("planName", paymentRequest.getPlanName())
                 .build();
 
         return Session.create(params);

@@ -5,8 +5,10 @@ import com.stripe.exception.EventDataObjectDeserializationException; // IMPORTAN
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.StripeObject;
+import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import com.stripe.param.SubscriptionUpdateParams;
 import com.tuplazamimeta.policiaapi.dto.request.PaymentRequest;
 import com.tuplazamimeta.policiaapi.model.User;
 import com.tuplazamimeta.policiaapi.service.StripeService;
@@ -34,7 +36,8 @@ public class PaymentController {
     private String webhookSecret;
 
     @PostMapping("/checkout")
-    public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody PaymentRequest request, Authentication authentication) {
+    public ResponseEntity<Map<String, String>> createCheckoutSession(@RequestBody PaymentRequest request,
+            Authentication authentication) {
         try {
             User user = (User) authentication.getPrincipal();
             Session session = stripeService.createCheckoutSession(request, user);
@@ -47,7 +50,8 @@ public class PaymentController {
     }
 
     @PostMapping("/webhook")
-    public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
+    public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload,
+            @RequestHeader("Stripe-Signature") String sigHeader) {
         Event event;
 
         try {
@@ -60,7 +64,7 @@ public class PaymentController {
         }
 
         if ("checkout.session.completed".equals(event.getType())) {
-            
+
             EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
             Session session = null;
 
@@ -68,7 +72,8 @@ public class PaymentController {
             if (dataObjectDeserializer.getObject().isPresent()) {
                 session = (Session) dataObjectDeserializer.getObject().get();
             } else {
-                // Si la versión no coincide, forzamos la lectura (SOLUCIÓN AL ERROR DE COMPILACIÓN)
+                // Si la versión no coincide, forzamos la lectura (SOLUCIÓN AL ERROR DE
+                // COMPILACIÓN)
                 System.out.println("⚠️ Versión API diferente. Intentando deserialización forzada...");
                 try {
                     StripeObject stripeObject = dataObjectDeserializer.deserializeUnsafe();
@@ -83,24 +88,25 @@ public class PaymentController {
 
             if (session != null) {
                 String userId = session.getMetadata().get("userId");
-                String rawPlanName = session.getMetadata().get("planName"); // Ej: "Solo Supuestos"
+                String rawPlanName = session.getMetadata().get("planName");
 
-                // TRADUCCIÓN DE NOMBRES (SOLUCIÓN AL PROBLEMA DE LÓGICA)
-                String internalRole = mapToInternalRole(rawPlanName);
+                // --- NUEVO: Capturamos los IDs de la suscripción ---
+                String customerId = session.getCustomer();
+                String subscriptionId = session.getSubscription();
 
-                System.out.println("✅ PROCESANDO: Usuario " + userId + " | Plan Original: " + rawPlanName + " -> Rol Interno: " + internalRole);
-
-                int durationMonths = 1;
-                if (rawPlanName != null && rawPlanName.toLowerCase().contains("anual")) {
-                    durationMonths = 12;
-                }
+                System.out.println("✅ NUEVA SUSCRIPCIÓN -> User: " + userId + " | SubID: " + subscriptionId);
 
                 try {
-                    // Usamos internalRole en lugar de rawPlanName
-                    userService.activateSubscription(userId, durationMonths, internalRole);
-                    System.out.println("🚀 ¡SUSCRIPCIÓN ACTIVADA CON ÉXITO!");
+                    // 1. Guardamos los IDs de Stripe en el usuario
+                    userService.saveStripeInfo(userId, customerId, subscriptionId);
+
+                    // 2. Activamos el rol (Mapeando el nombre correctamente)
+                    String internalRole = mapToInternalRole(rawPlanName);
+                    userService.activateSubscription(userId, 1, internalRole);
+
+                    System.out.println("🚀 ¡SUSCRIPCIÓN ACTIVADA Y VINCULADA!");
                 } catch (Exception e) {
-                    System.err.println("❌ Error en base de datos: " + e.getMessage());
+                    System.err.println("❌ Error guardando suscripción: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -108,21 +114,49 @@ public class PaymentController {
 
         return ResponseEntity.ok("Recibido");
     }
+    @PostMapping("/cancel-subscription")
+    public ResponseEntity<String> cancelSubscription(Authentication auth) {
+        try {
+            User user = (User) auth.getPrincipal();
+            String subId = user.getStripeSubscriptionId();
+
+            if (subId == null || subId.isEmpty()) {
+                return ResponseEntity.badRequest().body("No tienes ninguna suscripción activa para cancelar.");
+            }
+
+            // Llamamos a Stripe
+            Subscription subscription = Subscription.retrieve(subId);
+            
+            // Le decimos que cancele AL FINAL del periodo (para que disfrute lo que ya pagó)
+            SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
+                    .setCancelAtPeriodEnd(true)
+                    .build();
+            
+            subscription.update(params);
+
+            return ResponseEntity.ok("Suscripción cancelada correctamente. Tu acceso continuará hasta el final del ciclo de facturación.");
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al cancelar la suscripción: " + e.getMessage());
+        }
+    }
 
     // --- Método auxiliar para limpiar los nombres ---
     private String mapToInternalRole(String rawName) {
-        if (rawName == null) return "GRATIS";
-        
+        if (rawName == null)
+            return "GRATIS";
+
         String lowerName = rawName.toLowerCase();
-        
+
         if (lowerName.contains("test")) {
             return "TEST";
         } else if (lowerName.contains("supuestos") || lowerName.contains("practical")) {
             return "SUPUESTOS";
         } else if (lowerName.contains("completo") || lowerName.contains("premium")) {
-            return "COMPLETO"; 
+            return "COMPLETO";
         }
-        
+
         return "PRUEBA"; // Por defecto si no reconoce nada
     }
 }

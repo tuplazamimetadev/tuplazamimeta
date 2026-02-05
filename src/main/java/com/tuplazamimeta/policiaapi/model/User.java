@@ -34,6 +34,12 @@ public class User implements UserDetails { // <--- IMPLEMENTA ESTO
     @Column(name = "expiration_date")
     private LocalDate expirationDate;
 
+    @Column(name = "stripe_customer_id")
+    private String stripeCustomerId;
+
+    @Column(name = "stripe_subscription_id")
+    private String stripeSubscriptionId;
+
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();

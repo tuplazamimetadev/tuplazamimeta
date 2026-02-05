@@ -59,4 +59,13 @@ public class UserService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con email: " + email));
     }
+
+    public void saveStripeInfo(String userId, String customerId, String subscriptionId) {
+        User user = userRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        
+        user.setStripeCustomerId(customerId);
+        user.setStripeSubscriptionId(subscriptionId);
+        userRepository.save(user);
+    }
 }
