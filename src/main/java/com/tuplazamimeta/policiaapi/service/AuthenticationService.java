@@ -27,7 +27,7 @@ public class AuthenticationService {
         user.setEmail(request.getEmail());
         // ¡ENCRIPTAMOS LA CONTRASEÑA ANTES DE GUARDAR!
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole("STUDENT");
+        user.setRole("PRUEBA");
 
         userRepository.save(user);
 
