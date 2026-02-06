@@ -10,12 +10,14 @@ import java.util.List;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
     
-    // Consulta nativa para obtener preguntas aleatorias
-    // El Pageable se encarga del "LIMIT" automáticamente
     @Query(value = "SELECT * FROM questions ORDER BY RAND()", nativeQuery = true)
     List<Question> findRandomQuestions(Pageable pageable);
 
-    // Consulta filtrada por categoría y aleatoria
+    // Consulta para una sola categoría
     @Query(value = "SELECT * FROM questions WHERE category = :category ORDER BY RAND()", nativeQuery = true)
     List<Question> findRandomQuestionsByCategory(@Param("category") String category, Pageable pageable);
+
+    // NUEVA: Consulta para lista de categorías (Bloque A / B)
+    @Query(value = "SELECT * FROM questions WHERE category IN :categories ORDER BY RAND()", nativeQuery = true)
+    List<Question> findRandomQuestionsByCategories(@Param("categories") List<String> categories, Pageable pageable);
 }
