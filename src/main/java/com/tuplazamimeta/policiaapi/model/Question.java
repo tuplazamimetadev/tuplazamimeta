@@ -18,8 +18,9 @@ public class Question {
     private String optionB;
     private String optionC;
     private String optionD;
-
-    private String correctOption; // "A", "B", "C", "D"
+    
+    @Column(name = "correct_option", columnDefinition = "CHAR(1)")
+    private String correctOption; 
 
     @Column(columnDefinition = "TEXT")
     private String explanation;
